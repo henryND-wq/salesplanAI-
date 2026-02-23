@@ -23,11 +23,12 @@
         const TargetIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>;
         const DollarSign = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>;
         const Activity = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>;
+        const Cpu = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>;
 
         // --- REUSABLE INPUT COMPONENT (With >= 0 Restriction) ---
         const InputField = ({ label, value, onChange, icon: Icon }) => (
             <div className="mb-4">
-                <label className="block text-xs font-semibold text-cyan-400 uppercase tracking-wider mb-1">{label}</label>
+                <label className="block text-[10px] font-semibold text-cyan-400 uppercase tracking-wider mb-1 truncate" title={label}>{label}</label>
                 <div className="relative group">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <Icon className="h-4 w-4 text-cyan-600 group-focus-within:text-cyan-400 transition-colors" />
@@ -37,13 +38,10 @@
                         min="0"
                         value={value}
                         onChange={(e) => {
-                            // Prevent negative numbers from being set
                             const val = e.target.value;
-                            if (val === "" || Number(val) >= 0) {
-                                onChange(val);
-                            }
+                            if (val === "" || Number(val) >= 0) onChange(val);
                         }}
-                        className="block w-full pl-10 pr-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all"
+                        className="block w-full pl-9 pr-2 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all text-sm"
                         placeholder="0"
                     />
                 </div>
@@ -55,14 +53,20 @@
             const [salesData, setSalesData] = useState([]);
             const [isLoading, setIsLoading] = useState(true);
             
-            // Dropdown States (Initialized empty, will be set automatically)
+            // Dropdown States
             const [selectedBrand, setSelectedBrand] = useState("");
             const [selectedCenter, setSelectedCenter] = useState("");
             const [selectedTherapist, setSelectedTherapist] = useState("");
 
-            // Simulator States
-            const [existingData, setExistingData] = useState({ upsell: 0, birthday: 0, avgTicket: 5000 });
-            const [newData, setNewData] = useState({ tail: 0, icb: 0, avgTicket: 8000 });
+            // Simulator States (UPDATED with individual Avg Tickets)
+            const [existingData, setExistingData] = useState({ 
+                upsell: 0, upsellAvg: 5000, 
+                birthday: 0, birthdayAvg: 5000 
+            });
+            const [newData, setNewData] = useState({ 
+                tail: 0, tailAvg: 8000, 
+                icb: 0, icbAvg: 8000 
+            });
 
             // --- 2. FETCH DATA ---
             useEffect(() => {
@@ -81,12 +85,12 @@
                             brand: row[0] ? row[0].trim() : "Unknown",
                             center: row[1] ? row[1].trim() : "Unknown",
                             therapist: row[2].trim(),
-                            target: parseNum(row[3]),      // Col D
-                            actual: parseNum(row[4]),      // Col E
-                            acb: parseNum(row[6]),         // Col G
-                            icb: parseNum(row[7]),         // Col H
-                            acbShop: parseNum(row[8]),     // Col I
-                            icbShop: parseNum(row[9]),     // Col J
+                            target: parseNum(row[3]),      
+                            actual: parseNum(row[4]),      
+                            acb: parseNum(row[6]),         
+                            icb: parseNum(row[7]),         
+                            acbShop: parseNum(row[8]),     
+                            icbShop: parseNum(row[9]),     
                         }));
                         setSalesData(parsedData);
                         setIsLoading(false);
@@ -94,50 +98,25 @@
                 });
             }, []);
 
-            // --- 3. FILTER LOGIC (Cascading without "All") ---
+            // --- 3. FILTER LOGIC ---
             const brands = useMemo(() => [...new Set(salesData.map(d => d.brand))].sort(), [salesData]);
-            
-            // Auto-select first brand
-            useEffect(() => {
-                if (brands.length > 0 && !brands.includes(selectedBrand)) {
-                    setSelectedBrand(brands[0]);
-                }
-            }, [brands, selectedBrand]);
+            useEffect(() => { if (brands.length > 0 && !brands.includes(selectedBrand)) setSelectedBrand(brands[0]); }, [brands, selectedBrand]);
 
             const centers = useMemo(() => {
                 if (!selectedBrand) return [];
                 return [...new Set(salesData.filter(d => d.brand === selectedBrand).map(d => d.center))].sort();
             }, [salesData, selectedBrand]);
-
-            // Auto-select first center when brand changes
-            useEffect(() => {
-                if (centers.length > 0 && !centers.includes(selectedCenter)) {
-                    setSelectedCenter(centers[0]);
-                }
-            }, [centers, selectedCenter]);
+            useEffect(() => { if (centers.length > 0 && !centers.includes(selectedCenter)) setSelectedCenter(centers[0]); }, [centers, selectedCenter]);
 
             const therapists = useMemo(() => {
                 if (!selectedBrand || !selectedCenter) return [];
                 return [...new Set(salesData.filter(d => d.brand === selectedBrand && d.center === selectedCenter).map(d => d.therapist))].sort();
             }, [salesData, selectedBrand, selectedCenter]);
+            useEffect(() => { if (therapists.length > 0 && !therapists.includes(selectedTherapist)) setSelectedTherapist(therapists[0]); }, [therapists, selectedTherapist]);
 
-            // Auto-select first therapist when center changes
-            useEffect(() => {
-                if (therapists.length > 0 && !therapists.includes(selectedTherapist)) {
-                    setSelectedTherapist(therapists[0]);
-                }
-            }, [therapists, selectedTherapist]);
-
-
-            // --- 4. CURRENT LIVE DATA (Specific Therapist) ---
+            // --- 4. CURRENT LIVE DATA ---
             const currentStats = useMemo(() => {
-                // Since there is no "All", this will filter down to the 1 specific therapist row
-                const filtered = salesData.filter(d => 
-                    d.brand === selectedBrand &&
-                    d.center === selectedCenter &&
-                    d.therapist === selectedTherapist
-                );
-
+                const filtered = salesData.filter(d => d.brand === selectedBrand && d.center === selectedCenter && d.therapist === selectedTherapist);
                 const sumTarget = filtered.reduce((sum, row) => sum + row.target, 0);
                 const sumActual = filtered.reduce((sum, row) => sum + row.actual, 0);
                 const mtdPct = sumTarget > 0 ? (sumActual / sumTarget) * 100 : 0;
@@ -153,12 +132,17 @@
                 };
             }, [salesData, selectedBrand, selectedCenter, selectedTherapist]);
 
-            // --- 5. SIMULATOR MATH ---
+            // --- 5. SIMULATOR MATH (UPDATED) ---
             const existingSigns = Number(existingData.upsell) + Number(existingData.birthday);
             const newSigns = Number(newData.tail) + Number(newData.icb);
             
-            const existingSales = existingSigns * Number(existingData.avgTicket);
-            const newSales = newSigns * Number(newData.avgTicket);
+            // Calculate uniquely based on separate Avg Tickets
+            const existingSales = (Number(existingData.upsell) * Number(existingData.upsellAvg)) + 
+                                  (Number(existingData.birthday) * Number(existingData.birthdayAvg));
+                                  
+            const newSales = (Number(newData.tail) * Number(newData.tailAvg)) + 
+                             (Number(newData.icb) * Number(newData.icbAvg));
+                             
             const totalSimulatedSales = existingSales + newSales;
 
             // --- 6. PROJECTED RESULTS MATH ---
@@ -174,13 +158,22 @@
 
             return (
                 <div className="min-h-screen bg-black text-slate-200 font-sans p-4 md:p-8">
-                    {/* Header */}
-                    <div className="max-w-6xl mx-auto mb-10 text-center relative">
+                    {/* Header with Custom Logo */}
+                    <div className="max-w-6xl mx-auto mb-10 text-center relative flex flex-col items-center">
                         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl -z-10"></div>
+                        
+                        {/* Logo Element */}
+                        <div className="mb-4 relative">
+                            <div className="absolute inset-0 bg-cyan-400 blur-xl opacity-20 animate-pulse rounded-full"></div>
+                            <div className="bg-slate-900 border border-cyan-500/50 p-4 rounded-2xl shadow-[0_0_20px_rgba(34,211,238,0.2)]">
+                                <Cpu className="w-10 h-10 text-cyan-400" />
+                            </div>
+                        </div>
+
                         <h1 className="text-4xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-600 mb-2">
                             AI 銷售規劃模擬器
                         </h1>
-                        <p className="text-slate-500 text-sm tracking-widest uppercase mb-8">Integrated Sales Projection Engine</p>
+                        <p className="text-slate-500 text-sm tracking-widest uppercase mb-8">Neo Derm • Sales Projection Engine</p>
                     </div>
 
                     <div className="max-w-6xl mx-auto">
@@ -209,7 +202,6 @@
                                 </div>
                             </div>
 
-                            {/* Display ALL 7 Columns from Sheet */}
                             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                                 <DataCard title="Sales Target" value={formatCurrency(currentStats.target)} highlight="text-white" />
                                 <DataCard title="Actual Sales (MTD)" value={formatCurrency(currentStats.actual)} highlight="text-green-400" />
@@ -224,6 +216,7 @@
 
                         {/* SECTION 2: SIMULATOR INPUTS */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                            
                             {/* Existing Customers */}
                             <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-8 flex flex-col relative overflow-hidden">
                                 <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl -z-10"></div>
@@ -234,12 +227,17 @@
                                     </div>
                                     <Users className="w-8 h-8 text-cyan-400 opacity-50" />
                                 </div>
-                                <div className="grid grid-cols-2 gap-4 mb-4">
+                                
+                                <div className="grid grid-cols-2 gap-x-4 mb-2">
                                     <InputField label="Upsell Sign" value={existingData.upsell} onChange={(v) => setExistingData({...existingData, upsell: v})} icon={TrendingUp} />
-                                    <InputField label="Birthday Sign" value={existingData.birthday} onChange={(v) => setExistingData({...existingData, birthday: v})} icon={Zap} />
+                                    <InputField label="Upsell 客單價" value={existingData.upsellAvg} onChange={(v) => setExistingData({...existingData, upsellAvg: v})} icon={DollarSign} />
                                 </div>
-                                <InputField label="平均客單價 (Avg Ticket)" value={existingData.avgTicket} onChange={(v) => setExistingData({...existingData, avgTicket: v})} icon={DollarSign} />
-                                <div className="mt-4 pt-4 border-t border-slate-800 flex justify-between items-end">
+                                <div className="grid grid-cols-2 gap-x-4 mb-4">
+                                    <InputField label="Birthday Sign" value={existingData.birthday} onChange={(v) => setExistingData({...existingData, birthday: v})} icon={Zap} />
+                                    <InputField label="Birthday 客單價" value={existingData.birthdayAvg} onChange={(v) => setExistingData({...existingData, birthdayAvg: v})} icon={DollarSign} />
+                                </div>
+
+                                <div className="mt-auto pt-4 border-t border-slate-800 flex justify-between items-end">
                                     <span className="text-slate-400 text-sm">舊客模擬銷售額</span>
                                     <span className="text-xl font-mono font-bold text-cyan-400">{formatCurrency(existingSales)}</span>
                                 </div>
@@ -255,12 +253,17 @@
                                     </div>
                                     <TargetIcon className="w-8 h-8 text-blue-400 opacity-50" />
                                 </div>
-                                <div className="grid grid-cols-2 gap-4 mb-4">
-                                    <InputField label="一龍尾 (Tail)" value={newData.tail} onChange={(v) => setNewData({...newData, tail: v})} icon={Activity} />
-                                    <InputField label="ICB 激活 (Reactivation)" value={newData.icb} onChange={(v) => setNewData({...newData, icb: v})} icon={Zap} />
+                                
+                                <div className="grid grid-cols-2 gap-x-4 mb-2">
+                                    <InputField label="一龍尾 (Tail) Sign" value={newData.tail} onChange={(v) => setNewData({...newData, tail: v})} icon={Activity} />
+                                    <InputField label="Tail 客單價" value={newData.tailAvg} onChange={(v) => setNewData({...newData, tailAvg: v})} icon={DollarSign} />
                                 </div>
-                                <InputField label="平均客單價 (Avg Ticket)" value={newData.avgTicket} onChange={(v) => setNewData({...newData, avgTicket: v})} icon={DollarSign} />
-                                <div className="mt-4 pt-4 border-t border-slate-800 flex justify-between items-end">
+                                <div className="grid grid-cols-2 gap-x-4 mb-4">
+                                    <InputField label="ICB 激活 Sign" value={newData.icb} onChange={(v) => setNewData({...newData, icb: v})} icon={Zap} />
+                                    <InputField label="ICB 客單價" value={newData.icbAvg} onChange={(v) => setNewData({...newData, icbAvg: v})} icon={DollarSign} />
+                                </div>
+
+                                <div className="mt-auto pt-4 border-t border-slate-800 flex justify-between items-end">
                                     <span className="text-slate-400 text-sm">新客模擬銷售額</span>
                                     <span className="text-xl font-mono font-bold text-blue-400">{formatCurrency(newSales)}</span>
                                 </div>
@@ -269,14 +272,12 @@
 
                         {/* SECTION 3: PROJECTED IMPACT SUMMARY */}
                         <div className="bg-gradient-to-br from-slate-900 to-black border border-slate-700 rounded-[2rem] p-8 relative overflow-hidden shadow-2xl">
-                            {/* Decorative background glow based on goal hit */}
                             <div className={`absolute -bottom-20 -right-20 w-64 h-64 rounded-full blur-3xl opacity-30 transition-all duration-700 ${newProjectedMtdPct >= 200 ? 'bg-blue-600' : (newProjectedMtdPct >= 100 ? 'bg-green-500' : 'bg-slate-700')}`}></div>
                             
                             <h2 className="text-xl font-bold text-white mb-6 border-b border-slate-800 pb-4">3. 模擬預測結果 (Projected Impact)</h2>
                             
                             <div className="flex flex-col md:flex-row justify-between items-center gap-8">
                                 
-                                {/* Simulated Added Value */}
                                 <div className="flex-1 text-center md:text-left bg-slate-800/40 p-6 rounded-2xl border border-slate-700 w-full">
                                     <span className="text-xs font-bold text-cyan-400 uppercase tracking-widest block mb-2">+ 新增規劃銷售額</span>
                                     <div className="text-4xl font-black text-white tracking-tighter">
@@ -289,7 +290,6 @@
 
                                 <div className="text-slate-600 text-4xl font-black hidden md:block">=</div>
 
-                                {/* New Projected Actual */}
                                 <div className="flex-1 text-center md:text-left bg-slate-800/40 p-6 rounded-2xl border border-slate-700 w-full">
                                     <span className="text-xs font-bold text-green-400 uppercase tracking-widest block mb-2">預測最新 Actual Sales</span>
                                     <div className="text-4xl font-black text-white tracking-tighter">
@@ -300,7 +300,6 @@
                                     </div>
                                 </div>
 
-                                {/* Full Month Target % */}
                                 <div className="flex flex-col justify-center items-center bg-black/60 p-6 rounded-2xl border border-slate-700 w-full relative min-h-[160px]">
                                     <div className={`text-5xl font-black transition-all duration-500 ${newProjectedMtdPct >= 200 ? 'text-blue-400 drop-shadow-[0_0_15px_rgba(96,165,250,0.8)]' : (newProjectedMtdPct >= 100 ? 'text-green-400' : 'text-yellow-400')}`}>
                                         {formatPct(newProjectedMtdPct)}
@@ -309,25 +308,20 @@
                                         Full Month Target %
                                     </div>
 
-                                    {/* Affirmation Animation (Displays only when >= 200%) */}
                                     {newProjectedMtdPct >= 200 && (
                                         <div className="absolute -bottom-4 bg-blue-500 text-white text-xs font-bold px-4 py-2 rounded-full animate-bounce shadow-[0_0_15px_rgba(59,130,246,0.8)] flex items-center gap-2">
-                                            <span>✨</span>
-                                            Target Secured!
-                                            <span>✨</span>
+                                            <span>✨</span> Target Secured! <span>✨</span>
                                         </div>
                                     )}
                                 </div>
 
                             </div>
                         </div>
-                        
                     </div>
                 </div>
             );
         };
 
-        // Reusable UI Component for the top Data Cards
         const DataCard = ({ title, value, highlight }) => (
             <div className="bg-slate-800/40 border border-slate-700 p-4 rounded-xl flex flex-col justify-center">
                 <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">{title}</span>
