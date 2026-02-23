@@ -1,5 +1,26 @@
-import React, { useState, useEffect } from 'react';
-import { TrendingUp, Users, Zap, Target, DollarSign, PieChart, Activity } from 'lucide-react';
+import React, { useState } from 'react';
+import { TrendingUp, Users, Zap, Target, DollarSign, Activity } from 'lucide-react';
+
+// 1. MOVED OUTSIDE: Extracted InputField to prevent unnecessary re-renders and lost input focus
+const InputField = ({ label, value, onChange, icon: Icon }) => (
+  <div className="mb-4">
+    <label className="block text-xs font-semibold text-cyan-400 uppercase tracking-wider mb-1">
+      {label}
+    </label>
+    <div className="relative group">
+      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+        <Icon className="h-4 w-4 text-cyan-600 group-focus-within:text-cyan-400 transition-colors" />
+      </div>
+      <input
+        type="number"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="block w-full pl-10 pr-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
+        placeholder="0"
+      />
+    </div>
+  </div>
+);
 
 const App = () => {
   // Existing Customer State (舊客)
@@ -19,12 +40,12 @@ const App = () => {
   // Global ACB/Target Headcount
   const [acb, setAcb] = useState(10);
 
-  // Derived Values
-  const existingSigns = Number(existingData.upsell) + Number(existingData.birthday);
-  const newSigns = Number(newData.tail) + Number(newData.icb);
+  // Derived Values (Added fallback to 0 to prevent NaN errors if input is empty)
+  const existingSigns = (Number(existingData.upsell) || 0) + (Number(existingData.birthday) || 0);
+  const newSigns = (Number(newData.tail) || 0) + (Number(newData.icb) || 0);
   
-  const existingSales = existingSigns * Number(existingData.avgTicket);
-  const newSales = newSigns * Number(newData.avgTicket);
+  const existingSales = existingSigns * (Number(existingData.avgTicket) || 0);
+  const newSales = newSigns * (Number(newData.avgTicket) || 0);
   const totalSales = existingSales + newSales;
 
   // Percentage distribution
@@ -39,26 +60,6 @@ const App = () => {
     }).format(val);
   };
 
-  const InputField = ({ label, value, onChange, icon: Icon }) => (
-    <div className="mb-4">
-      <label className="block text-xs font-semibold text-cyan-400 uppercase tracking-wider mb-1">
-        {label}
-      </label>
-      <div className="relative group">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <Icon className="h-4 w-4 text-cyan-600 group-focus-within:text-cyan-400 transition-colors" />
-        </div>
-        <input
-          type="number"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="block w-full pl-10 pr-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
-          placeholder="0"
-        />
-      </div>
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-black text-slate-200 font-sans p-4 md:p-8 selection:bg-cyan-500 selection:text-white">
       {/* Header Section */}
@@ -69,20 +70,22 @@ const App = () => {
         </h1>
         <p className="text-slate-500 text-sm tracking-widest uppercase">Neo Derm - Sales Optimization Engine</p>
         
-        <div className="mt-8 inline-flex items-center gap-4 bg-slate-900/50 backdrop-blur-md p-4 rounded-2xl border border-slate-800 shadow-xl">
-          <div className="flex flex-col items-start px-4">
-            <span className="text-[10px] text-cyan-500 font-bold uppercase tracking-widest">ACB 基數</span>
-            <input 
-              type="number" 
-              value={acb} 
-              onChange={(e) => setAcb(e.target.value)}
-              className="bg-transparent text-2xl font-bold text-white w-20 focus:outline-none"
-            />
-          </div>
-          <div className="h-8 w-[1px] bg-slate-700"></div>
-          <div className="flex flex-col items-start px-4">
-            <span className="text-[10px] text-blue-500 font-bold uppercase tracking-widest">當前日期</span>
-            <span className="text-xl font-bold">{new Date().toLocaleDateString('zh-HK')}</span>
+        <div className="mt-8 flex justify-center">
+          <div className="inline-flex items-center gap-4 bg-slate-900/50 backdrop-blur-md p-4 rounded-2xl border border-slate-800 shadow-xl">
+            <div className="flex flex-col items-start px-4">
+              <span className="text-[10px] text-cyan-500 font-bold uppercase tracking-widest">ACB 基數</span>
+              <input 
+                type="number" 
+                value={acb} 
+                onChange={(e) => setAcb(e.target.value)}
+                className="bg-transparent text-2xl font-bold text-white w-20 focus:outline-none"
+              />
+            </div>
+            <div className="h-8 w-[1px] bg-slate-700"></div>
+            <div className="flex flex-col items-start px-4">
+              <span className="text-[10px] text-blue-500 font-bold uppercase tracking-widest">當前日期</span>
+              <span className="text-xl font-bold">{new Date().toLocaleDateString('zh-HK')}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -191,10 +194,10 @@ const App = () => {
       {/* Summary Section */}
       <div className="max-w-6xl mx-auto">
         <div className="bg-slate-900/80 border border-slate-700 rounded-[2rem] p-8 overflow-hidden relative">
-          {/* Progress Bar Background */}
+          {/* 2. FIXED SYNTAX: Corrected inline style string literals */}
           <div className="absolute bottom-0 left-0 right-0 h-1 flex">
-            <div className="h-full bg-cyan-500 transition-all duration-700" style={{ width: ${existingPct}% }}></div>
-            <div className="h-full bg-blue-500 transition-all duration-700" style={{ width: ${newPct}% }}></div>
+            <div className="h-full bg-cyan-500 transition-all duration-700" style={{ width: `${existingPct}%` }}></div>
+            <div className="h-full bg-blue-500 transition-all duration-700" style={{ width: `${newPct}%` }}></div>
           </div>
 
           <div className="flex flex-col md:flex-row justify-between items-center gap-8">
