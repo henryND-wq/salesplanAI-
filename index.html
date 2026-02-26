@@ -2,371 +2,566 @@
 <html lang="zh-HK">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 銷售規劃模擬器</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neoderm 200% 銷售計劃</title>
+    <!-- Tailwind CSS for Styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <!-- React and ReactDOM CDNs -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel for JSX compilation in browser -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        
+        :root {
+            --bg-color: #05030a;
+        }
+
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: var(--bg-color); 
+            color: white;
+            -webkit-tap-highlight-color: transparent;
+            overflow-x: hidden;
+        }
+
+        /* Social Network Background Pattern */
+        .bg-network {
+            background-image: 
+                radial-gradient(circle at center, transparent 0%, var(--bg-color) 100%),
+                url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M20 20 L40 0 M20 20 L0 0 M20 20 L20 40 M20 20 L40 40 M20 20 L0 40' stroke='rgba(168, 85, 247, 0.08)' stroke-width='1'/%3E%3Ccircle cx='20' cy='20' r='1.5' fill='rgba(217, 70, 239, 0.3)'/%3E%3C/svg%3E");
+            background-size: 60px 60px;
+        }
+
+        /* Hide number input spinners */
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        select {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='rgba(255,255,255,0.4)'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            background-size: 1.2em;
+        }
+
+        .animate-shimmer {
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+    </style>
 </head>
-<body class="bg-black text-white">
+<body>
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
-
-        // --- ICON COMPONENTS ---
-        const TrendingUp = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>;
-        const Users = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
-        const Zap = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>;
-        const TargetIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>;
-        const DollarSign = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>;
-        const Activity = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>;
-        const Cpu = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>;
-
-        // --- REUSABLE INPUT COMPONENT ---
-        const InputField = ({ label, value, onChange, icon: Icon }) => (
-            <div className="mb-4">
-                <label className="block text-[10px] font-semibold text-cyan-400 uppercase tracking-wider mb-1 truncate" title={label}>{label}</label>
-                <div className="relative group">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Icon className="h-4 w-4 text-cyan-600 group-focus-within:text-cyan-400 transition-colors" />
-                    </div>
-                    <input
-                        type="number"
-                        min="0"
-                        value={value}
-                        onChange={(e) => {
-                            const val = e.target.value;
-                            if (val === "" || Number(val) >= 0) onChange(val);
-                        }}
-                        className="block w-full pl-9 pr-2 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all text-sm"
-                        placeholder="0"
-                    />
-                </div>
-            </div>
-        );
-
-        // GLOBAL WORKER URL
-        const workerUrl = 'https://google-sheets-proxy.henry-yiu.workers.dev'; 
-
-        const App = () => {
-            // --- 1. STATES ---
-            const [salesData, setSalesData] = useState([]);
-            const [isLoading, setIsLoading] = useState(true);
-            
-            // Dropdown States
-            const [selectedBrand, setSelectedBrand] = useState("");
-            const [selectedCenter, setSelectedCenter] = useState("");
-            const [selectedTherapist, setSelectedTherapist] = useState("");
-
-            // Simulator States
-            const [existingData, setExistingData] = useState({ upsell: 0, upsellAvg: 5000, birthday: 0, birthdayAvg: 5000 });
-            const [newData, setNewData] = useState({ tail: 0, tailAvg: 8000, icb: 0, icbAvg: 8000 });
-
-            // Submission Test States
-            const [testItem, setTestItem] = useState("");
-            const [isSyncing, setIsSyncing] = useState(false);
-            const [syncStatus, setSyncStatus] = useState(null); // 'success', 'error', or null
-
-            // --- 2. FETCH DATA VIA CLOUDFLARE PROXY ---
+        const { useState, useEffect, useMemo, useCallback } = React;
+        
+        // Manual Lucide Icon Mapping for CDN usage
+        const Icon = ({ name, className, size = 24 }) => {
+            const [svg, setSvg] = useState('');
             useEffect(() => {
-                const sheetId = '1p8cqGBYiqhWgQsDndMjeGwcnupqp6h6tIyCQb1i5LQc';
-                const gid = '184945526';
-                
-                const csvUrl = `${workerUrl}/?sheetId=${sheetId}&gid=${gid}`;
-
-                Papa.parse(csvUrl, {
-                    download: true,
-                    header: false,
-                    complete: (results) => {
-                        const rows = results.data.slice(1);
-                        const parseNum = (val) => Number(String(val || '0').replace(/[$,%]/g, '').trim()) || 0;
-
-                        const parsedData = rows.filter(row => row[2]).map(row => ({
-                            brand: row[0] ? row[0].trim() : "Unknown",
-                            center: row[1] ? row[1].trim() : "Unknown",
-                            therapist: row[2].trim(),
-                            target: parseNum(row[3]),      
-                            actual: parseNum(row[4]),      
-                            acb: parseNum(row[6]),         
-                            icb: parseNum(row[7]),         
-                            acbShop: parseNum(row[8]),     
-                            icbShop: parseNum(row[9]),     
-                        }));
-                        setSalesData(parsedData);
-                        setIsLoading(false);
+                if (window.lucide) {
+                    const iconNode = window.lucide.icons[name];
+                    if (iconNode) {
+                        const svgString = iconNode.map(tag => {
+                            const [tagName, attrs] = tag;
+                            const attrString = Object.entries(attrs).map(([k, v]) => `${k}="${v}"`).join(' ');
+                            return `<${tagName} ${attrString}></${tagName}>`;
+                        }).join('');
+                        setSvg(svgString);
                     }
-                });
-            }, []);
-
-            // --- 3. SUBMISSION HANDLER ---
-            const handleSync = async () => {
-                if (!testItem.trim()) return;
-                setIsSyncing(true);
-                setSyncStatus(null);
-                
-                try {
-                    const response = await fetch(workerUrl, {
-                        method: 'POST',
-                        body: JSON.stringify({ testItem: testItem }),
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                    
-                    if (response.ok) {
-                        setSyncStatus('success');
-                        setTestItem(""); // Clear the input
-                    } else {
-                        setSyncStatus('error');
-                    }
-                } catch (error) {
-                    console.error("Sync error:", error);
-                    setSyncStatus('error');
                 }
-                
-                setIsSyncing(false);
-                // Hide message after 3 seconds
-                setTimeout(() => setSyncStatus(null), 3000); 
-            };
-
-            // --- FILTER LOGIC ---
-            const brands = useMemo(() => [...new Set(salesData.map(d => d.brand))].sort(), [salesData]);
-            useEffect(() => { if (brands.length > 0 && !brands.includes(selectedBrand)) setSelectedBrand(brands[0]); }, [brands, selectedBrand]);
-
-            const centers = useMemo(() => {
-                if (!selectedBrand) return [];
-                return [...new Set(salesData.filter(d => d.brand === selectedBrand).map(d => d.center))].sort();
-            }, [salesData, selectedBrand]);
-            useEffect(() => { if (centers.length > 0 && !centers.includes(selectedCenter)) setSelectedCenter(centers[0]); }, [centers, selectedCenter]);
-
-            const therapists = useMemo(() => {
-                if (!selectedBrand || !selectedCenter) return [];
-                return [...new Set(salesData.filter(d => d.brand === selectedBrand && d.center === selectedCenter).map(d => d.therapist))].sort();
-            }, [salesData, selectedBrand, selectedCenter]);
-            useEffect(() => { if (therapists.length > 0 && !therapists.includes(selectedTherapist)) setSelectedTherapist(therapists[0]); }, [therapists, selectedTherapist]);
-
-            // --- CURRENT LIVE DATA ---
-            const currentStats = useMemo(() => {
-                const filtered = salesData.filter(d => d.brand === selectedBrand && d.center === selectedCenter && d.therapist === selectedTherapist);
-                const sumTarget = filtered.reduce((sum, row) => sum + row.target, 0);
-                const sumActual = filtered.reduce((sum, row) => sum + row.actual, 0);
-                const mtdPct = sumTarget > 0 ? (sumActual / sumTarget) * 100 : 0;
-
-                return {
-                    target: sumTarget,
-                    actual: sumActual,
-                    mtdPct: mtdPct,
-                    acb: filtered.reduce((sum, row) => sum + row.acb, 0),
-                    icb: filtered.reduce((sum, row) => sum + row.icb, 0),
-                    acbShop: filtered.reduce((sum, row) => sum + row.acbShop, 0),
-                    icbShop: filtered.reduce((sum, row) => sum + row.icbShop, 0),
-                };
-            }, [salesData, selectedBrand, selectedCenter, selectedTherapist]);
-
-            // --- SIMULATOR MATH ---
-            const existingSigns = Number(existingData.upsell) + Number(existingData.birthday);
-            const newSigns = Number(newData.tail) + Number(newData.icb);
-            
-            const existingSales = (Number(existingData.upsell) * Number(existingData.upsellAvg)) + 
-                                  (Number(existingData.birthday) * Number(existingData.birthdayAvg));
-                                  
-            const newSales = (Number(newData.tail) * Number(newData.tailAvg)) + 
-                             (Number(newData.icb) * Number(newData.icbAvg));
-                             
-            const totalSimulatedSales = existingSales + newSales;
-
-            const newProjectedActual = currentStats.actual + totalSimulatedSales;
-            const newProjectedMtdPct = currentStats.target > 0 ? (newProjectedActual / currentStats.target) * 100 : 0;
-
-            const formatCurrency = (val) => new Intl.NumberFormat('zh-HK', { style: 'currency', currency: 'HKD', maximumFractionDigits: 0 }).format(val);
-            const formatNumber = (val) => new Intl.NumberFormat('zh-HK').format(val);
-            const formatPct = (val) => `${val.toFixed(1)}%`;
-
-            if (isLoading) return <div className="min-h-screen bg-black flex items-center justify-center text-cyan-400 font-bold animate-pulse">正在載入數據... (Loading Data)</div>;
+            }, [name]);
 
             return (
-                <div className="min-h-screen bg-black text-slate-200 font-sans p-4 md:p-8">
-                    {/* Header */}
-                    <div className="max-w-6xl mx-auto mb-10 text-center relative flex flex-col items-center">
-                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl -z-10"></div>
-                        <div className="mb-4 relative">
-                            <div className="absolute inset-0 bg-cyan-400 blur-xl opacity-20 animate-pulse rounded-full"></div>
-                            <div className="bg-slate-900 border border-cyan-500/50 p-4 rounded-2xl shadow-[0_0_20px_rgba(34,211,238,0.2)]">
-                                <Cpu className="w-10 h-10 text-cyan-400" />
-                            </div>
+                <svg 
+                    width={size} 
+                    height={size} 
+                    className={className} 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                    dangerouslySetInnerHTML={{ __html: svg }}
+                />
+            );
+        };
+
+        const formatHKD = (val) => new Intl.NumberFormat('zh-HK', { style: 'currency', currency: 'HKD', maximumFractionDigits: 0 }).format(val);
+
+        // 將 SignInput 移至外部防止重新掛載導致失去焦點
+        const SignInput = ({ id, label, colorClass, iconName, planning, onUpdate }) => {
+            const item = planning[id];
+            const subtotal = Number(item.signs || 0) * Number(item.ticket || 0);
+
+            return (
+                <div className="relative group p-5 md:p-6 glass-panel rounded-3xl transition-all duration-300 hover:border-violet-500/30">
+                    <div className="flex items-center gap-3 mb-5">
+                        <div className={`p-2.5 rounded-xl bg-gradient-to-br ${colorClass} bg-opacity-10 shadow-lg`}>
+                            <Icon name={iconName} size={22} className="text-white" />
                         </div>
-                        <h1 className="text-4xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-600 mb-2">
-                            AI 銷售規劃模擬器
-                        </h1>
-                        <p className="text-slate-500 text-sm tracking-widest uppercase mb-8">Neo Derm • Sales Projection Engine</p>
+                        <span className="text-base md:text-lg font-bold text-white/90 tracking-wide">{label}</span>
                     </div>
-
-                    <div className="max-w-6xl mx-auto">
-                        {/* SECTION 1: LIVE DATA & FILTERS */}
-                        <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-8 mb-8 backdrop-blur-xl">
-                            <h2 className="text-xl font-bold text-white mb-6 border-b border-slate-800 pb-4">1. 選擇目標與當前數據 (Select & View)</h2>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                                <div>
-                                    <label className="block text-xs font-semibold text-cyan-400 uppercase tracking-wider mb-2">品牌 (Brand)</label>
-                                    <select value={selectedBrand} onChange={(e) => setSelectedBrand(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg text-white p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500">
-                                        {brands.map(b => <option key={b} value={b}>{b}</option>)}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-semibold text-cyan-400 uppercase tracking-wider mb-2">中心 (Center)</label>
-                                    <select value={selectedCenter} onChange={(e) => setSelectedCenter(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg text-white p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500">
-                                        {centers.map(c => <option key={c} value={c}>{c}</option>)}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-semibold text-cyan-400 uppercase tracking-wider mb-2">治療師 (Therapist)</label>
-                                    <select value={selectedTherapist} onChange={(e) => setSelectedTherapist(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg text-white p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500">
-                                        {therapists.map(t => <option key={t} value={t}>{t}</option>)}
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                                <DataCard title="Sales Target" value={formatCurrency(currentStats.target)} highlight="text-white" />
-                                <DataCard title="Actual Sales (MTD)" value={formatCurrency(currentStats.actual)} highlight="text-green-400" />
-                                <DataCard title="MTD %" value={formatPct(currentStats.mtdPct)} highlight="text-white" />
-                                <DataCard title="ACB of cur. month" value={formatNumber(currentStats.acb)} highlight="text-cyan-400" />
-                                <DataCard title="ICB of cur. month" value={formatNumber(currentStats.icb)} highlight="text-purple-400" />
-                                <DataCard title="ACB Shop Count" value={formatNumber(currentStats.acbShop)} highlight="text-blue-400" />
-                                <DataCard title="ICB Shop Count" value={formatNumber(currentStats.icbShop)} highlight="text-indigo-400" />
-                            </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <label className="text-[11px] md:text-xs text-white/40 font-bold uppercase ml-1 tracking-widest">簽單目標</label>
+                            <input 
+                                type="number" 
+                                inputMode="numeric"
+                                value={item.signs}
+                                onChange={(e) => onUpdate(id, 'signs', e.target.value)}
+                                className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-4 text-xl text-white font-mono focus:ring-1 focus:ring-violet-400 outline-none transition-all"
+                                placeholder="0"
+                            />
                         </div>
-
-                        {/* SECTION 2: SIMULATOR INPUTS */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-                            {/* Existing Customers */}
-                            <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-8 flex flex-col relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl -z-10"></div>
-                                <div className="flex justify-between items-start mb-6">
-                                    <div>
-                                        <h2 className="text-2xl font-bold text-white mb-1">2a. 舊客規劃 (Existing)</h2>
-                                        <p className="text-cyan-500/80 text-sm">Customer Retention & Upsell</p>
-                                    </div>
-                                    <Users className="w-8 h-8 text-cyan-400 opacity-50" />
-                                </div>
-                                <div className="grid grid-cols-2 gap-x-4 mb-2">
-                                    <InputField label="Upsell Sign" value={existingData.upsell} onChange={(v) => setExistingData({...existingData, upsell: v})} icon={TrendingUp} />
-                                    <InputField label="Upsell 客單價" value={existingData.upsellAvg} onChange={(v) => setExistingData({...existingData, upsellAvg: v})} icon={DollarSign} />
-                                </div>
-                                <div className="grid grid-cols-2 gap-x-4 mb-4">
-                                    <InputField label="Birthday Sign" value={existingData.birthday} onChange={(v) => setExistingData({...existingData, birthday: v})} icon={Zap} />
-                                    <InputField label="Birthday 客單價" value={existingData.birthdayAvg} onChange={(v) => setExistingData({...existingData, birthdayAvg: v})} icon={DollarSign} />
-                                </div>
-                                <div className="mt-auto pt-4 border-t border-slate-800 flex justify-between items-end">
-                                    <span className="text-slate-400 text-sm">舊客模擬銷售額</span>
-                                    <span className="text-xl font-mono font-bold text-cyan-400">{formatCurrency(existingSales)}</span>
-                                </div>
-                            </div>
-
-                            {/* New Customers */}
-                            <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-8 flex flex-col relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl -z-10"></div>
-                                <div className="flex justify-between items-start mb-6">
-                                    <div>
-                                        <h2 className="text-2xl font-bold text-white mb-1">2b. 新客規劃 (New)</h2>
-                                        <p className="text-blue-500/80 text-sm">Acquisition & Reactivation</p>
-                                    </div>
-                                    <TargetIcon className="w-8 h-8 text-blue-400 opacity-50" />
-                                </div>
-                                <div className="grid grid-cols-2 gap-x-4 mb-2">
-                                    <InputField label="一龍尾 (Tail) Sign" value={newData.tail} onChange={(v) => setNewData({...newData, tail: v})} icon={Activity} />
-                                    <InputField label="Tail 客單價" value={newData.tailAvg} onChange={(v) => setNewData({...newData, tailAvg: v})} icon={DollarSign} />
-                                </div>
-                                <div className="grid grid-cols-2 gap-x-4 mb-4">
-                                    <InputField label="ICB 激活 Sign" value={newData.icb} onChange={(v) => setNewData({...newData, icb: v})} icon={Zap} />
-                                    <InputField label="ICB 客單價" value={newData.icbAvg} onChange={(v) => setNewData({...newData, icbAvg: v})} icon={DollarSign} />
-                                </div>
-                                <div className="mt-auto pt-4 border-t border-slate-800 flex justify-between items-end">
-                                    <span className="text-slate-400 text-sm">新客模擬銷售額</span>
-                                    <span className="text-xl font-mono font-bold text-blue-400">{formatCurrency(newSales)}</span>
-                                </div>
-                            </div>
+                        <div className="space-y-2">
+                            <label className="text-[11px] md:text-xs text-white/40 font-bold uppercase ml-1 tracking-widest">平均客單價</label>
+                            <input 
+                                type="number" 
+                                inputMode="numeric"
+                                value={item.ticket}
+                                onChange={(e) => onUpdate(id, 'ticket', e.target.value)}
+                                className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-4 text-xl text-white font-mono focus:ring-1 focus:ring-violet-400 outline-none transition-all"
+                                placeholder="0"
+                            />
                         </div>
-
-                        {/* SECTION 3: PROJECTED IMPACT SUMMARY */}
-                        <div className="bg-gradient-to-br from-slate-900 to-black border border-slate-700 rounded-[2rem] p-8 mb-8 relative overflow-hidden shadow-2xl">
-                            <div className={`absolute -bottom-20 -right-20 w-64 h-64 rounded-full blur-3xl opacity-30 transition-all duration-700 ${newProjectedMtdPct >= 200 ? 'bg-blue-600' : (newProjectedMtdPct >= 100 ? 'bg-green-500' : 'bg-slate-700')}`}></div>
-                            <h2 className="text-xl font-bold text-white mb-6 border-b border-slate-800 pb-4">3. 模擬預測結果 (Projected Impact)</h2>
-                            <div className="flex flex-col md:flex-row justify-between items-center gap-8">
-                                <div className="flex-1 text-center md:text-left bg-slate-800/40 p-6 rounded-2xl border border-slate-700 w-full">
-                                    <span className="text-xs font-bold text-cyan-400 uppercase tracking-widest block mb-2">+ 新增規劃銷售額</span>
-                                    <div className="text-4xl font-black text-white tracking-tighter">{formatCurrency(totalSimulatedSales)}</div>
-                                    <div className="text-sm text-slate-500 mt-2">總成交數: {existingSigns + newSigns} 單</div>
-                                </div>
-                                <div className="text-slate-600 text-4xl font-black hidden md:block">=</div>
-                                <div className="flex-1 text-center md:text-left bg-slate-800/40 p-6 rounded-2xl border border-slate-700 w-full">
-                                    <span className="text-xs font-bold text-green-400 uppercase tracking-widest block mb-2">預測最新 Actual Sales</span>
-                                    <div className="text-4xl font-black text-white tracking-tighter">{formatCurrency(newProjectedActual)}</div>
-                                    <div className="text-sm text-slate-500 mt-2">(Current Actual + Simulated Added)</div>
-                                </div>
-                                <div className="flex flex-col justify-center items-center bg-black/60 p-6 rounded-2xl border border-slate-700 w-full relative min-h-[160px]">
-                                    <div className={`text-5xl font-black transition-all duration-500 ${newProjectedMtdPct >= 200 ? 'text-blue-400 drop-shadow-[0_0_15px_rgba(96,165,250,0.8)]' : (newProjectedMtdPct >= 100 ? 'text-green-400' : 'text-yellow-400')}`}>
-                                        {formatPct(newProjectedMtdPct)}
-                                    </div>
-                                    <div className="text-[10px] text-slate-400 font-bold uppercase mt-2 tracking-widest">Full Month Target %</div>
-                                    {newProjectedMtdPct >= 200 && (
-                                        <div className="absolute -bottom-4 bg-blue-500 text-white text-xs font-bold px-4 py-2 rounded-full animate-bounce shadow-[0_0_15px_rgba(59,130,246,0.8)] flex items-center gap-2">
-                                            <span>✨</span> Target Secured! <span>✨</span>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* SECTION 4: SUBMISSION TEST */}
-                        <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-8 backdrop-blur-xl">
-                            <h2 className="text-xl font-bold text-white mb-6 border-b border-slate-800 pb-4">4. 提交測試 (Submission Test)</h2>
-                            <div className="flex flex-col sm:flex-row gap-4 items-center">
-                                <input
-                                    type="text"
-                                    value={testItem}
-                                    onChange={(e) => setTestItem(e.target.value)}
-                                    placeholder="輸入測試項目 (Enter test item)..."
-                                    className="flex-1 w-full p-4 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all"
-                                />
-                                <button
-                                    onClick={handleSync}
-                                    disabled={isSyncing || !testItem.trim()}
-                                    className={`px-8 py-4 rounded-xl font-bold transition-all whitespace-nowrap w-full sm:w-auto ${
-                                        isSyncing || !testItem.trim() 
-                                            ? 'bg-slate-800 text-slate-500 cursor-not-allowed' 
-                                            : 'bg-cyan-500 hover:bg-cyan-400 text-black shadow-[0_0_15px_rgba(34,211,238,0.4)]'
-                                    }`}
-                                >
-                                    {isSyncing ? '同步中 (Syncing)...' : '同步至表格 (Sync)'}
-                                </button>
-                            </div>
-                            
-                            {/* Status Messages */}
-                            {syncStatus === 'success' && (
-                                <p className="text-green-400 text-sm mt-4 font-bold animate-pulse">
-                                    ✅ 成功同步至 Google Sheets! (Successfully Synced)
-                                </p>
-                            )}
-                            {syncStatus === 'error' && (
-                                <p className="text-red-400 text-sm mt-4 font-bold">
-                                    ❌ 同步失敗，請重試。 (Sync Failed)
-                                </p>
-                            )}
-                        </div>
-
+                    </div>
+                    <div className="mt-5 flex justify-between items-center px-1">
+                        <span className="text-xs text-white/30 font-bold uppercase">分支小計</span>
+                        <span className="text-base md:text-xl font-black text-white/80">{formatHKD(subtotal)}</span>
                     </div>
                 </div>
             );
         };
 
-        const DataCard = ({ title, value, highlight }) => (
-            <div className="bg-slate-800/40 border border-slate-700 p-4 rounded-xl flex flex-col justify-center">
-                <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">{title}</span>
-                <span className={`text-2xl font-black ${highlight}`}>{value}</span>
-            </div>
-        );
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwP0O0BsCWK0MN03uayShGS8-WWHBgPRZWz9LCTEiF4amChe2PoBVQYKOm_v_cmKqF7XQ/exec";
+
+        const App = () => {
+            const [db, setDb] = useState([]);
+            const [isLoading, setIsLoading] = useState(false);
+            const [error, setError] = useState(null);
+            
+            // 篩選器狀態加入 Region
+            const [filters, setFilters] = useState({ region: "HK", brand: "", center: "", therapist: "" });
+            
+            const [planning, setPlanning] = useState({
+                upsell: { signs: 0, ticket: 6000 },
+                birthday: { signs: 0, ticket: 4500 },
+                tail: { signs: 0, ticket: 8000 },
+                icb: { signs: 0, ticket: 12000 },
+            });
+
+            // 提交狀態
+            const [isSubmitting, setIsSubmitting] = useState(false);
+            const [submitStatus, setSubmitStatus] = useState(null); // 'success', 'error', null
+
+            useEffect(() => {
+                fetchData();
+            }, []);
+
+            const fetchData = async () => {
+                setIsLoading(true);
+                setError(null);
+                try {
+                    const response = await fetch(SCRIPT_URL, {
+                        method: 'GET',
+                        mode: 'cors',
+                        cache: 'no-cache',
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    
+                    if (Array.isArray(data)) {
+                        setDb(data);
+                    } else {
+                        throw new Error("數據格式錯誤：預期應為陣列格式。");
+                    }
+                } catch (err) {
+                    console.error("Fetch Error:", err);
+                    setError("數據連接失敗。請檢查：\n1. App Script 是否已發布為「所有人」(Anyone)\n2. 網路連線是否正常");
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+
+            const handleUpdate = useCallback((id, field, value) => {
+                setPlanning(prev => ({
+                    ...prev,
+                    [id]: {
+                        ...prev[id],
+                        [field]: value
+                    }
+                }));
+            }, []);
+
+            // 獲取可用的 Regions (預設提供 HK 和 SH)
+            const availableRegions = useMemo(() => {
+                const regions = [...new Set(db.map(i => i.Region))].filter(Boolean).sort();
+                return regions.length > 0 ? regions : ["HK", "SH"];
+            }, [db]);
+
+            // 動態聯動過濾選項
+            const brands = useMemo(() => {
+                return [...new Set(db.filter(i => !filters.region || i.Region === filters.region).map(i => i.Brand))].filter(Boolean).sort();
+            }, [db, filters.region]);
+
+            const centers = useMemo(() => {
+                return [...new Set(db.filter(i => 
+                    (!filters.region || i.Region === filters.region) && 
+                    (!filters.brand || i.Brand === filters.brand)
+                ).map(i => i.Center))].filter(Boolean).sort();
+            }, [db, filters.region, filters.brand]);
+
+            const therapists = useMemo(() => {
+                return db.filter(i => 
+                    (!filters.region || i.Region === filters.region) && 
+                    (!filters.brand || i.Brand === filters.brand) && 
+                    (!filters.center || i.Center === filters.center)
+                ).sort((a,b) => a.Therapist.localeCompare(b.Therapist));
+            }, [db, filters.region, filters.brand, filters.center]);
+
+            const selectedStaff = useMemo(() => db.find(i => i.Therapist === filters.therapist), [db, filters.therapist]);
+
+            const calcSales = (key) => Number(planning[key].signs || 0) * Number(planning[key].ticket || 0);
+            const existingSales = calcSales('upsell') + calcSales('birthday');
+            const newSales = calcSales('tail') + calcSales('icb');
+            const totalPlannedGrowth = existingSales + newSales;
+            const mtdActual = selectedStaff ? Number(selectedStaff["Actual Sales (MTD)"] || 0) : 0;
+            const originalTarget = selectedStaff ? Number(selectedStaff["Target Sales (Full Month)"] || 0) : 0;
+            const superTarget = originalTarget * 2;
+            const isTargetAchieved = selectedStaff && superTarget > 0 && totalPlannedGrowth >= superTarget;
+            const displayMtdPct = selectedStaff ? (Number(selectedStaff["MTD%"] || 0) * 100).toFixed(1) : "0";
+
+            // 提交遊戲計畫至 Google Sheet
+            const handleSubmit = async () => {
+                if (!selectedStaff || isSubmitting) return;
+                
+                setIsSubmitting(true);
+                setSubmitStatus(null);
+
+                const payload = {
+                    region: selectedStaff.Region || filters.region,
+                    therapist: selectedStaff.Therapist,
+                    brand: selectedStaff.Brand,
+                    center: selectedStaff.Center,
+                    upsell_signs: planning.upsell.signs,
+                    upsell_ticket: planning.upsell.ticket,
+                    birthday_signs: planning.birthday.signs,
+                    birthday_ticket: planning.birthday.ticket,
+                    tail_signs: planning.tail.signs,
+                    tail_ticket: planning.tail.ticket,
+                    icb_signs: planning.icb.signs,
+                    icb_ticket: planning.icb.ticket,
+                    projected_total: totalPlannedGrowth,
+                    timestamp: new Date().toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong' })
+                };
+
+                try {
+                    // 使用 no-cors 以避免預檢請求 (Preflight) 失敗，並以純文本發送 JSON
+                    await fetch(SCRIPT_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: {
+                            'Content-Type': 'text/plain;charset=utf-8',
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    setSubmitStatus('success');
+                    setTimeout(() => setSubmitStatus(null), 5000); // 5秒後恢復原狀
+                } catch (error) {
+                    console.error("Submit Error:", error);
+                    setSubmitStatus('error');
+                    setTimeout(() => setSubmitStatus(null), 5000);
+                } finally {
+                    setIsSubmitting(false);
+                }
+            };
+
+            return (
+                <div className="min-h-screen relative">
+                    {/* Social Network Pattern Background Decor */}
+                    <div className="fixed inset-0 pointer-events-none -z-10 bg-network"></div>
+                    <div className="fixed inset-0 pointer-events-none -z-10">
+                        <div className="absolute top-[-10%] left-[-5%] w-[70%] h-[50%] bg-violet-600/15 blur-[120px] rounded-full"></div>
+                        <div className="absolute bottom-[-10%] right-[-5%] w-[70%] h-[50%] bg-fuchsia-600/15 blur-[120px] rounded-full"></div>
+                    </div>
+
+                    {/* Loading/Error State Overlay */}
+                    {isLoading && (
+                        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex flex-col items-center justify-center">
+                            <Icon name="Network" className="w-12 h-12 text-violet-400 animate-spin mb-4" size={48} />
+                            <p className="text-violet-400 font-bold tracking-[0.5em] text-lg animate-pulse">節點數據同步中...</p>
+                        </div>
+                    )}
+
+                    <div className="relative z-10 max-w-7xl mx-auto px-4 py-8 md:px-10 md:py-16">
+                        <header className="flex flex-col gap-8 mb-12 md:mb-16">
+                            <div className="text-center md:text-left flex flex-col md:flex-row justify-between items-center gap-6">
+                                <div>
+                                    <div className="flex items-center gap-3 mb-4 justify-center md:justify-start">
+                                        <Icon name="Share2" size={16} className="text-violet-400" />
+                                        <span className="text-xs font-black text-violet-400 uppercase tracking-[0.5em]">v4.0 Social Network Ecosystem</span>
+                                    </div>
+                                    <h1 className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tighter italic leading-tight drop-shadow-lg">
+                                        Neoderm <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 via-fuchsia-400 to-pink-400">200% 銷售計劃</span>
+                                    </h1>
+                                </div>
+
+                                {/* Region Toggle Switch */}
+                                <div className="inline-flex bg-white/[0.03] border border-white/10 rounded-full p-1.5 backdrop-blur-xl shrink-0">
+                                    {availableRegions.map(region => (
+                                        <button
+                                            key={region}
+                                            onClick={() => setFilters({ region, brand: "", center: "", therapist: "" })}
+                                            className={`px-8 py-3 rounded-full text-sm font-black tracking-[0.2em] uppercase transition-all duration-300 ${
+                                                filters.region === region 
+                                                ? 'bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white shadow-[0_0_20px_rgba(168,85,247,0.4)]' 
+                                                : 'text-white/40 hover:text-white/80'
+                                            }`}
+                                        >
+                                            {region}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Dropdown Filters */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-3 glass-panel rounded-2xl md:rounded-[3rem] border border-violet-500/10">
+                                {['brand', 'center', 'therapist'].map((key) => (
+                                    <div key={key} className="relative w-full">
+                                        <select 
+                                            value={filters[key]}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                if (key === 'brand') setFilters({ ...filters, brand: val, center: "", therapist: "" });
+                                                else if (key === 'center') setFilters({ ...filters, center: val, therapist: "" });
+                                                else setFilters({ ...filters, [key]: val });
+                                            }}
+                                            className="w-full bg-black/60 border border-white/5 rounded-xl md:rounded-[2.5rem] px-6 py-4 text-base md:text-lg font-bold text-white outline-none cursor-pointer hover:bg-violet-900/30 transition-colors"
+                                        >
+                                            <option value="">選擇{key === 'brand' ? '品牌' : key === 'center' ? '網絡中心' : '治療師 (節點)'}</option>
+                                            {(key === 'brand' ? brands : key === 'center' ? centers : therapists.map(t => t.Therapist)).map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                        </select>
+                                    </div>
+                                ))}
+                            </div>
+                            
+                            {error && (
+                                <div className="p-5 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-start gap-4 text-red-400 text-base animate-in slide-in-from-top-2">
+                                    <Icon name="AlertCircle" size={24} className="w-6 h-6 flex-shrink-0 mt-0.5" />
+                                    <pre className="whitespace-pre-wrap font-sans">{error}</pre>
+                                </div>
+                            )}
+                        </header>
+
+                        {selectedStaff ? (
+                            <div className="animate-in fade-in duration-700">
+                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8 mb-12 md:mb-20">
+                                    {[
+                                        { label: 'MTD 實際銷售', value: formatHKD(mtdActual), icon: 'DollarSign', color: 'text-white' },
+                                        { label: '當前達成率', value: `${displayMtdPct}%`, icon: 'ShieldCheck', color: 'text-emerald-400' },
+                                        { label: 'ACB 網絡基數', value: selectedStaff["ACB (Curr. Month End)"], icon: 'Users', color: 'text-violet-400' },
+                                        { label: 'ICB 網絡基數', value: selectedStaff["ICB (Curr. Month End)"], icon: 'Network', color: 'text-fuchsia-400' }
+                                    ].map((m, i) => (
+                                        <div key={i} className="p-6 md:p-8 glass-panel rounded-3xl md:rounded-[2.5rem] relative overflow-hidden group hover:border-violet-500/30 transition-all">
+                                            <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                            <div className="flex items-center gap-3 mb-2 relative z-10">
+                                                <Icon name={m.icon} size={18} className="text-white/20" />
+                                                <span className="text-xs md:text-sm text-white/40 font-bold uppercase tracking-widest">{m.label}</span>
+                                            </div>
+                                            <div className={`text-xl md:text-3xl font-black relative z-10 ${m.color}`}>{m.value}</div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 md:gap-16 mb-16 md:mb-24">
+                                    {/* 舊客 PILLAR */}
+                                    <section className="space-y-8">
+                                        <div className="flex items-center gap-4 px-2">
+                                            <div className="h-6 w-1.5 bg-violet-500 rounded-full shadow-[0_0_10px_rgba(139,92,246,0.8)]"></div>
+                                            <h2 className="text-3xl font-black italic tracking-tight flex items-center gap-3">
+                                                內部轉化 <span className="text-sm font-medium text-violet-400 uppercase tracking-widest not-italic">Existing Pillar</span>
+                                            </h2>
+                                        </div>
+                                        <SignInput id="upsell" label="追加簽單 (UP-SELL)" colorClass="from-violet-500 to-violet-400" iconName="GitMerge" planning={planning} onUpdate={handleUpdate} />
+                                        <SignInput id="birthday" label="生日簽單 (BIRTHDAY)" colorClass="from-violet-400 to-violet-300" iconName="Gift" planning={planning} onUpdate={handleUpdate} />
+                                        <div className="px-6 py-2 text-right">
+                                            <span className="text-xs text-white/30 font-bold uppercase mr-4 tracking-widest">內部網絡增長額</span>
+                                            <span className="text-2xl font-black text-violet-400 font-mono">{formatHKD(existingSales)}</span>
+                                        </div>
+                                    </section>
+                                    
+                                    {/* 新客 PILLAR */}
+                                    <section className="space-y-8">
+                                        <div className="flex items-center gap-4 px-2">
+                                            <div className="h-6 w-1.5 bg-fuchsia-500 rounded-full shadow-[0_0_10px_rgba(217,70,239,0.8)]"></div>
+                                            <h2 className="text-3xl font-black italic tracking-tight flex items-center gap-3">
+                                                外部裂變 <span className="text-sm font-medium text-fuchsia-400 uppercase tracking-widest not-italic">New Pillar</span>
+                                            </h2>
+                                        </div>
+
+                                        {/* 網店數據參考區塊 */}
+                                        <div className="p-8 glass-panel rounded-3xl border border-fuchsia-500/20 bg-fuchsia-500/[0.03]">
+                                            <div className="flex items-center gap-3 mb-6">
+                                                <Icon name="Globe" size={24} className="text-fuchsia-400" />
+                                                <span className="text-base md:text-lg font-black text-fuchsia-400 uppercase tracking-widest">客人開店滲透率</span>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-8">
+                                                <div>
+                                                    <span className="text-sm md:text-base text-white/50 font-bold uppercase block mb-2 tracking-widest">ACB 網店連線數</span>
+                                                    <span className="text-4xl md:text-5xl font-black text-white">{selectedStaff["ACB Shop Count"] || 0}</span>
+                                                    <div className="text-base md:text-lg font-black text-fuchsia-300 mt-2 tracking-wider">
+                                                        滲透率: {Number(selectedStaff["ACB (Curr. Month End)"]) > 0 ? ((Number(selectedStaff["ACB Shop Count"]) / Number(selectedStaff["ACB (Curr. Month End)"])) * 100).toFixed(1) : "0"}%
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <span className="text-sm md:text-base text-white/50 font-bold uppercase block mb-2 tracking-widest">ICB 網店連線數</span>
+                                                    <span className="text-4xl md:text-5xl font-black text-white">{selectedStaff["ICB Shop Count"] || 0}</span>
+                                                    <div className="text-base md:text-lg font-black text-fuchsia-300 mt-2 tracking-wider">
+                                                        滲透率: {Number(selectedStaff["ICB (Curr. Month End)"]) > 0 ? ((Number(selectedStaff["ICB Shop Count"]) / Number(selectedStaff["ICB (Curr. Month End)"])) * 100).toFixed(1) : "0"}%
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <SignInput id="tail" label="龍尾 (TAIL)" colorClass="from-fuchsia-500 to-fuchsia-400" iconName="Activity" planning={planning} onUpdate={handleUpdate} />
+                                        <SignInput id="icb" label="ICB 簽單 (ICB SIGN)" colorClass="from-fuchsia-400 to-pink-400" iconName="Zap" planning={planning} onUpdate={handleUpdate} />
+                                        <div className="px-6 py-2 text-right">
+                                            <span className="text-xs text-white/30 font-bold uppercase mr-4 tracking-widest">外部網絡增長額</span>
+                                            <span className="text-2xl font-black text-fuchsia-400 font-mono">{formatHKD(newSales)}</span>
+                                        </div>
+                                    </section>
+                                </div>
+
+                                {/* Impact Summary Section */}
+                                <div className="relative group rounded-[3rem] md:rounded-[4rem] overflow-hidden mb-16 shadow-2xl">
+                                    <div className="absolute inset-0 bg-gradient-to-br from-white/[0.05] to-transparent pointer-events-none"></div>
+                                    <div className="glass-panel p-8 md:p-16 relative">
+                                        {/* Badge */}
+                                        <div className="absolute top-0 right-8 md:right-16 bg-gradient-to-r from-orange-500 to-red-600 px-6 py-2 rounded-b-2xl flex items-center gap-2 shadow-xl">
+                                            <Icon name="Flame" size={16} className="text-white" />
+                                            <span className="text-xs font-black uppercase tracking-tighter">200% Super Target</span>
+                                        </div>
+
+                                        <div className="flex flex-col xl:flex-row items-center gap-10 xl:gap-16 mt-4 md:mt-0">
+                                            <div className="flex-1 w-full min-w-0 text-center xl:text-left">
+                                                <span className="text-xs text-white/30 font-black uppercase tracking-[0.5em] block mb-6">預估規劃總增長額 (P1+P2)</span>
+                                                <div className="text-6xl sm:text-7xl md:text-8xl lg:text-[5rem] xl:text-[5.5rem] font-black text-white leading-none mb-10 tracking-tighter tabular-nums drop-shadow-2xl break-words">
+                                                    {formatHKD(totalPlannedGrowth)}
+                                                </div>
+                                                
+                                                <div className="flex flex-col sm:flex-row gap-4 justify-center xl:justify-start">
+                                                    <div className="px-8 py-5 bg-orange-500/10 rounded-2xl border border-orange-500/10 flex-1 max-w-[300px] backdrop-blur-xl">
+                                                        <span className="text-xs text-orange-400 block mb-2 font-bold uppercase tracking-widest">200% 目標額</span>
+                                                        <span className="text-2xl font-black text-orange-400 truncate block">{formatHKD(superTarget)}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex flex-col gap-8 items-center xl:items-end w-full xl:w-auto xl:min-w-[340px] flex-shrink-0">
+                                                <div className="text-center xl:text-right">
+                                                    <div className="text-7xl md:text-8xl lg:text-[5.5rem] font-black text-white mb-3 tabular-nums tracking-tighter leading-none">
+                                                        {originalTarget > 0 ? ((totalPlannedGrowth / originalTarget) * 100).toFixed(1) : 0}%
+                                                    </div>
+                                                    <div className="text-sm text-white/30 font-black uppercase tracking-[0.2em]">模擬達成率 (對標 200%)</div>
+                                                </div>
+
+                                                <div className={`w-full py-6 px-10 rounded-3xl text-center text-lg font-black tracking-[0.2em] uppercase border transition-all duration-500 shadow-2xl ${isTargetAchieved ? 'bg-emerald-500 text-black border-emerald-400' : 'bg-white/5 text-white/40 border-white/10'}`}>
+                                                    {!selectedStaff ? (
+                                                        "請先選擇人員"
+                                                    ) : isTargetAchieved ? (
+                                                        <div className="flex items-center justify-center gap-3">
+                                                            <Icon name="ShieldCheck" size={24} /> 200% 目標已鎖定
+                                                        </div>
+                                                    ) : (
+                                                        `尚欠 ${formatHKD(Math.max(0, superTarget - totalPlannedGrowth))}`
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Progress Bar */}
+                                        <div className="mt-16 h-4 w-full bg-white/5 rounded-full overflow-hidden p-1 border border-white/5 mb-10">
+                                            <div 
+                                                className="h-full bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-600 rounded-full transition-all duration-1000 ease-out relative" 
+                                                style={{ width: `${selectedStaff && superTarget > 0 ? Math.min(100, (totalPlannedGrowth / superTarget) * 100) : 0}%` }}
+                                            >
+                                                <div className="absolute top-0 right-0 h-full w-8 bg-white/20 blur-md animate-pulse"></div>
+                                            </div>
+                                        </div>
+
+                                        {/* 提交至雲端按鈕 */}
+                                        <div className="border-t border-white/10 pt-10 flex justify-center">
+                                            <button 
+                                                onClick={handleSubmit} 
+                                                disabled={isSubmitting}
+                                                className={`flex items-center justify-center gap-3 w-full md:w-auto px-12 py-5 rounded-full font-black text-xl tracking-[0.2em] uppercase transition-all duration-300 shadow-2xl ${
+                                                    submitStatus === 'success' ? 'bg-emerald-500 text-black shadow-[0_0_30px_rgba(16,185,129,0.4)]' :
+                                                    submitStatus === 'error' ? 'bg-red-500 text-white shadow-[0_0_30px_rgba(239,68,68,0.4)]' :
+                                                    isSubmitting ? 'bg-white/10 text-white/50 cursor-not-allowed' :
+                                                    'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:scale-105 shadow-[0_0_30px_rgba(168,85,247,0.5)] border border-fuchsia-500/30'
+                                                }`}
+                                            >
+                                                {isSubmitting ? (
+                                                    <><Icon name="RefreshCw" className="animate-spin text-white/50" size={24} /> 節點同步中...</>
+                                                ) : submitStatus === 'success' ? (
+                                                    <><Icon name="CheckCircle2" size={24} /> 網絡同步完成</>
+                                                ) : submitStatus === 'error' ? (
+                                                    <><Icon name="AlertCircle" size={24} /> 連線干擾，請重試</>
+                                                ) : (
+                                                    <><Icon name="Share2" size={24} /> 提交專屬規劃 (SYNC)</>
+                                                )}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="glass-panel border-violet-500/20 p-20 rounded-[3rem] text-center space-y-6 animate-pulse mt-8">
+                                <Icon name="Network" size={64} className="mx-auto text-violet-500/30" />
+                                <p className="text-xl md:text-2xl text-violet-300/50 font-black uppercase tracking-[0.4em]">請先在上方連接地區及治療師節點</p>
+                            </div>
+                        )}
+                        
+                        <footer className="text-center pb-12 mt-20">
+                            <span className="text-xs font-black uppercase tracking-[0.6em] text-violet-400/30">Neo Derm Social Strategy Hub &copy; 2024</span>
+                        </footer>
+                    </div>
+                </div>
+            );
+        };
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
