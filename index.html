@@ -26,7 +26,6 @@
             color: white;
             -webkit-tap-highlight-color: transparent;
             overflow-x: hidden;
-            margin: 0;
         }
 
         /* Social Network Background Pattern */
@@ -63,53 +62,61 @@
             background-position: right 1rem center;
             background-size: 1.2em;
         }
+
+        .animate-shimmer {
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
     </style>
 </head>
 <body>
-    <!-- 防止 React 崩潰時的白屏備用畫面 -->
-    <div id="fallback-error" style="display: none; padding: 40px; text-align: center; color: #ef4444; font-weight: bold; font-size: 20px;">
-        網頁腳本發生嚴重錯誤，無法啟動 React。請檢查瀏覽器主控台 (F12)。
-    </div>
-    
-    <div id="root">
-        <div style="padding: 40px; text-align: center; color: #a855f7; font-weight: bold; font-size: 20px; animation: pulse 2s infinite;">
-            系統介面載入中... 
-            <br><span style="font-size: 14px; color: #666;">(若停留超過 5 秒，代表代碼發生錯誤)</span>
-        </div>
-    </div>
+    <div id="root"></div>
 
     <script type="text/babel">
-        // 攔截重大錯誤
-        window.addEventListener('error', () => {
-            const fallback = document.getElementById('fallback-error');
-            if(fallback) fallback.style.display = 'block';
-        });
-
-        const { useState, useEffect, useMemo, useCallback, useRef } = React;
+        const { useState, useEffect, useMemo, useCallback } = React;
         
-        // 修正版安全 Icon 元件：使用原生 Lucide API，100% 防止崩潰
-        const Icon = ({ name, className = "", size = 24 }) => {
-            const spanRef = useRef(null);
+        // Manual Lucide Icon Mapping for CDN usage
+        const Icon = ({ name, className, size = 24 }) => {
+            const [svg, setSvg] = useState('');
             useEffect(() => {
-                if (spanRef.current && window.lucide && window.lucide.icons[name]) {
-                    try {
-                        spanRef.current.innerHTML = ''; 
-                        const svg = window.lucide.createElement(window.lucide.icons[name]);
-                        svg.setAttribute('width', size);
-                        svg.setAttribute('height', size);
-                        if (className) svg.setAttribute('class', className);
-                        spanRef.current.appendChild(svg);
-                    } catch (e) {
-                        console.error("圖示載入失敗:", e);
+                if (window.lucide) {
+                    const iconNode = window.lucide.icons[name];
+                    if (iconNode) {
+                        const svgString = iconNode.map(tag => {
+                            const [tagName, attrs] = tag;
+                            const attrString = Object.entries(attrs).map(([k, v]) => `${k}="${v}"`).join(' ');
+                            return `<${tagName} ${attrString}></${tagName}>`;
+                        }).join('');
+                        setSvg(svgString);
                     }
                 }
-            }, [name, size, className]);
+            }, [name]);
 
-            return <span ref={spanRef} className="inline-flex items-center justify-center" style={{ width: size, height: size }}></span>;
+            return (
+                <svg 
+                    width={size} 
+                    height={size} 
+                    className={className} 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                    dangerouslySetInnerHTML={{ __html: svg }}
+                />
+            );
         };
 
         const formatHKD = (val) => new Intl.NumberFormat('zh-HK', { style: 'currency', currency: 'HKD', maximumFractionDigits: 0 }).format(val);
 
+        // 將 SignInput 移至外部防止重新掛載導致失去焦點
         const SignInput = ({ id, label, colorClass, iconName, planning, onUpdate }) => {
             const item = planning[id];
             const subtotal = Number(item.signs || 0) * Number(item.ticket || 0);
@@ -154,14 +161,14 @@
             );
         };
 
-        // ⚠️ 請確保這是您最新的 Google Apps Script 網址
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwP0O0BsCWK0MN03uayShGS8-WWHBgPRZWz9LCTEiF4amChe2PoBVQYKOm_v_cmKqF7XQ/exec";
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwmFzxUR9ezUFgQjG-cWRja0gld_85k6satiEQfj1ZGSbM7HygibFPWsYtZecWibdpPIQ/exec";
 
         const App = () => {
             const [db, setDb] = useState([]);
             const [isLoading, setIsLoading] = useState(false);
             const [error, setError] = useState(null);
             
+            // 篩選器狀態加入 Region
             const [filters, setFilters] = useState({ region: "HK", brand: "", center: "", therapist: "" });
             
             const [planning, setPlanning] = useState({
@@ -171,8 +178,9 @@
                 icb: { signs: 0, ticket: 12000 },
             });
 
+            // 提交狀態
             const [isSubmitting, setIsSubmitting] = useState(false);
-            const [submitStatus, setSubmitStatus] = useState(null); 
+            const [submitStatus, setSubmitStatus] = useState(null); // 'success', 'error', null
 
             useEffect(() => {
                 fetchData();
@@ -182,45 +190,26 @@
                 setIsLoading(true);
                 setError(null);
                 try {
-                    // 自動診斷系統
-                    const response = await fetch(SCRIPT_URL);
-                    const textData = await response.text();
+                    const response = await fetch(SCRIPT_URL, {
+                        method: 'GET',
+                        mode: 'cors',
+                        cache: 'no-cache',
+                    });
                     
-                    if (textData.trim().startsWith('<')) {
-                        throw new Error("❌ 連線被 Google 攔截 (CORS 錯誤)。\n這代表您後端的 App Script 部署設定錯誤！\n解決方法：請回到 Apps Script，點擊「管理部署作業」，確定「存取權」設為【所有人 (Anyone)】，然後【建立新版本】。");
-                    }
-                    
-                    let data;
-                    try {
-                        data = JSON.parse(textData);
-                    } catch (parseError) {
-                        throw new Error(`❌ 無法解析 Google 回傳的資料。\n詳細資料: ${textData.substring(0, 100)}...`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
                     }
                     
-                    if (!Array.isArray(data)) {
-                        throw new Error("❌ 數據格式錯誤：回傳的不是陣列，請檢查試算表內容。");
+                    const data = await response.json();
+                    
+                    if (Array.isArray(data)) {
+                        setDb(data);
+                    } else {
+                        throw new Error("數據格式錯誤：預期應為陣列格式。");
                     }
-
-                    // 診斷 1: 完全沒收到資料 (可能是舊版程式碼讀取了空的 Submissions)
-                    if (data.length === 0) {
-                        throw new Error("⚠️ 成功連線，但沒有讀取到任何資料 (0筆)。\n原因分析：\n1. 您是否將 Code.gs 的代碼改成了最新版並【部署了新版本】？\n2. 您的 Google Sheet 裡面是否有建立【Database】工作表？\n3. 工作表裡面是否有填寫員工資料？");
-                    }
-
-                    // 診斷 2: 後端回傳了自定義錯誤
-                    if (data.length > 0 && data[0].Region === "⚠️ 錯誤") {
-                        throw new Error(`❌ 後端 Google Sheet 發生錯誤：\n${data[0].Therapist}`);
-                    }
-
-                    // 診斷 3: 讀取到了錯誤的分頁 (Submissions)
-                    const firstRow = data[0];
-                    if ('Timestamp' in firstRow && !('Therapist' in firstRow)) {
-                         throw new Error("❌ 嚴重錯誤：您正在讀取「Submissions (提交紀錄)」工作表！\n下拉選單會因此變成空白。\n解決方法：請將 Code.gs 裡 doGet() 中讀取的名稱改為您存放名單的名稱 (如 Database)，並重新部署。");
-                    }
-
-                    setDb(data);
                 } catch (err) {
                     console.error("Fetch Error:", err);
-                    setError(err.message);
+                    setError("數據連接失敗。請檢查：\n1. App Script 是否已發布為「所有人」(Anyone)\n2. 網路連線是否正常");
                 } finally {
                     setIsLoading(false);
                 }
@@ -236,11 +225,13 @@
                 }));
             }, []);
 
+            // 獲取可用的 Regions (預設提供 HK 和 SH)
             const availableRegions = useMemo(() => {
                 const regions = [...new Set(db.map(i => i.Region))].filter(Boolean).sort();
                 return regions.length > 0 ? regions : ["HK", "SH"];
             }, [db]);
 
+            // 動態聯動過濾選項
             const brands = useMemo(() => {
                 return [...new Set(db.filter(i => !filters.region || i.Region === filters.region).map(i => i.Brand))].filter(Boolean).sort();
             }, [db, filters.region]);
@@ -257,7 +248,7 @@
                     (!filters.region || i.Region === filters.region) && 
                     (!filters.brand || i.Brand === filters.brand) && 
                     (!filters.center || i.Center === filters.center)
-                ).sort((a,b) => (a.Therapist || '').localeCompare(b.Therapist || ''));
+                ).sort((a,b) => a.Therapist.localeCompare(b.Therapist));
             }, [db, filters.region, filters.brand, filters.center]);
 
             const selectedStaff = useMemo(() => db.find(i => i.Therapist === filters.therapist), [db, filters.therapist]);
@@ -272,12 +263,12 @@
             const isTargetAchieved = selectedStaff && superTarget > 0 && totalPlannedGrowth >= superTarget;
             const displayMtdPct = selectedStaff ? (Number(selectedStaff["MTD%"] || 0) * 100).toFixed(1) : "0";
 
+            // 提交遊戲計畫至 Google Sheet
             const handleSubmit = async () => {
                 if (!selectedStaff || isSubmitting) return;
                 
                 setIsSubmitting(true);
                 setSubmitStatus(null);
-                setError(null); // 清除過去的錯誤
 
                 const payload = {
                     region: selectedStaff.Region || filters.region,
@@ -297,36 +288,21 @@
                 };
 
                 try {
-                    // 🌟 關鍵修復：移除了 mode: 'no-cors'，讓 React 能夠讀取到 Google 拋回來的真實報錯
-                    const response = await fetch(SCRIPT_URL, {
+                    // 使用 no-cors 以避免預檢請求 (Preflight) 失敗，並以純文本發送 JSON
+                    await fetch(SCRIPT_URL, {
                         method: 'POST',
+                        mode: 'no-cors',
                         headers: {
                             'Content-Type': 'text/plain;charset=utf-8',
                         },
                         body: JSON.stringify(payload)
                     });
                     
-                    const textData = await response.text();
-                    let result;
-                    try {
-                        result = JSON.parse(textData);
-                    } catch (e) {
-                        console.error("Raw response:", textData);
-                        throw new Error("伺服器回傳了錯誤畫面。\n這代表您的 Google Apps Script 執行失敗。請確認是否已點擊【管理部署作業】->【建立新版本】。");
-                    }
-
-                    if (result.status === 'error') {
-                        throw new Error(`Google Apps Script 內部出錯: ${result.message}`);
-                    }
-                    
                     setSubmitStatus('success');
-                    setTimeout(() => setSubmitStatus(null), 5000);
+                    setTimeout(() => setSubmitStatus(null), 5000); // 5秒後恢復原狀
                 } catch (error) {
                     console.error("Submit Error:", error);
-                    setError(`⚠️ 提交寫入失敗：${error.message}`);
                     setSubmitStatus('error');
-                    // 自動滾動到最上方讓您能看見具體的紅色錯誤提示
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
                     setTimeout(() => setSubmitStatus(null), 5000);
                 } finally {
                     setIsSubmitting(false);
@@ -335,12 +311,14 @@
 
             return (
                 <div className="min-h-screen relative">
+                    {/* Social Network Pattern Background Decor */}
                     <div className="fixed inset-0 pointer-events-none -z-10 bg-network"></div>
                     <div className="fixed inset-0 pointer-events-none -z-10">
                         <div className="absolute top-[-10%] left-[-5%] w-[70%] h-[50%] bg-violet-600/15 blur-[120px] rounded-full"></div>
                         <div className="absolute bottom-[-10%] right-[-5%] w-[70%] h-[50%] bg-fuchsia-600/15 blur-[120px] rounded-full"></div>
                     </div>
 
+                    {/* Loading/Error State Overlay */}
                     {isLoading && (
                         <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex flex-col items-center justify-center">
                             <Icon name="Network" className="w-12 h-12 text-violet-400 animate-spin mb-4" size={48} />
@@ -361,6 +339,7 @@
                                     </h1>
                                 </div>
 
+                                {/* Region Toggle Switch */}
                                 <div className="inline-flex bg-white/[0.03] border border-white/10 rounded-full p-1.5 backdrop-blur-xl shrink-0">
                                     {availableRegions.map(region => (
                                         <button
@@ -378,7 +357,8 @@
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-3 glass-panel rounded-2xl md:rounded-[3rem] border border-violet-500/10 relative">
+                            {/* Dropdown Filters */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-3 glass-panel rounded-2xl md:rounded-[3rem] border border-violet-500/10">
                                 {['brand', 'center', 'therapist'].map((key) => (
                                     <div key={key} className="relative w-full">
                                         <select 
@@ -396,18 +376,12 @@
                                         </select>
                                     </div>
                                 ))}
-                                
-                                {db.length > 0 && brands.length === 0 && (
-                                     <div className="absolute inset-0 bg-black/80 flex items-center justify-center rounded-[3rem] text-orange-400 font-bold backdrop-blur-md">
-                                        ⚠️ 資料已連接，但找不到「品牌」等欄位，請檢查 Google Sheet 標題是否正確。
-                                     </div>
-                                )}
                             </div>
                             
                             {error && (
-                                <div className="p-6 bg-red-500/10 border-2 border-red-500/40 rounded-3xl flex items-start gap-4 text-red-400 text-base animate-in slide-in-from-top-2 shadow-2xl">
-                                    <Icon name="AlertCircle" size={28} className="w-8 h-8 flex-shrink-0 mt-0.5" />
-                                    <pre className="whitespace-pre-wrap font-sans leading-relaxed text-lg">{error}</pre>
+                                <div className="p-5 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-start gap-4 text-red-400 text-base animate-in slide-in-from-top-2">
+                                    <Icon name="AlertCircle" size={24} className="w-6 h-6 flex-shrink-0 mt-0.5" />
+                                    <pre className="whitespace-pre-wrap font-sans">{error}</pre>
                                 </div>
                             )}
                         </header>
@@ -433,6 +407,7 @@
                                 </div>
 
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 md:gap-16 mb-16 md:mb-24">
+                                    {/* 舊客 PILLAR */}
                                     <section className="space-y-8">
                                         <div className="flex items-center gap-4 px-2">
                                             <div className="h-6 w-1.5 bg-violet-500 rounded-full shadow-[0_0_10px_rgba(139,92,246,0.8)]"></div>
@@ -448,6 +423,7 @@
                                         </div>
                                     </section>
                                     
+                                    {/* 新客 PILLAR */}
                                     <section className="space-y-8">
                                         <div className="flex items-center gap-4 px-2">
                                             <div className="h-6 w-1.5 bg-fuchsia-500 rounded-full shadow-[0_0_10px_rgba(217,70,239,0.8)]"></div>
@@ -456,6 +432,7 @@
                                             </h2>
                                         </div>
 
+                                        {/* 網店數據參考區塊 */}
                                         <div className="p-8 glass-panel rounded-3xl border border-fuchsia-500/20 bg-fuchsia-500/[0.03]">
                                             <div className="flex items-center gap-3 mb-6">
                                                 <Icon name="Globe" size={24} className="text-fuchsia-400" />
@@ -488,9 +465,11 @@
                                     </section>
                                 </div>
 
+                                {/* Impact Summary Section */}
                                 <div className="relative group rounded-[3rem] md:rounded-[4rem] overflow-hidden mb-16 shadow-2xl">
                                     <div className="absolute inset-0 bg-gradient-to-br from-white/[0.05] to-transparent pointer-events-none"></div>
                                     <div className="glass-panel p-8 md:p-16 relative">
+                                        {/* Badge */}
                                         <div className="absolute top-0 right-8 md:right-16 bg-gradient-to-r from-orange-500 to-red-600 px-6 py-2 rounded-b-2xl flex items-center gap-2 shadow-xl">
                                             <Icon name="Flame" size={16} className="text-white" />
                                             <span className="text-xs font-black uppercase tracking-tighter">200% Super Target</span>
@@ -533,6 +512,7 @@
                                             </div>
                                         </div>
 
+                                        {/* Progress Bar */}
                                         <div className="mt-16 h-4 w-full bg-white/5 rounded-full overflow-hidden p-1 border border-white/5 mb-10">
                                             <div 
                                                 className="h-full bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-600 rounded-full transition-all duration-1000 ease-out relative" 
@@ -542,6 +522,7 @@
                                             </div>
                                         </div>
 
+                                        {/* 提交至雲端按鈕 */}
                                         <div className="border-t border-white/10 pt-10 flex justify-center">
                                             <button 
                                                 onClick={handleSubmit} 
