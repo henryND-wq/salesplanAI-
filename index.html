@@ -26,6 +26,7 @@
             color: white;
             -webkit-tap-highlight-color: transparent;
             overflow-x: hidden;
+            margin: 0;
         }
 
         /* Social Network Background Pattern */
@@ -62,56 +63,49 @@
             background-position: right 1rem center;
             background-size: 1.2em;
         }
-
-        .animate-shimmer {
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
-            background-size: 200% 100%;
-            animation: shimmer 2s infinite;
-        }
-
-        @keyframes shimmer {
-            0% { background-position: -200% 0; }
-            100% { background-position: 200% 0; }
-        }
     </style>
 </head>
 <body>
-    <div id="root"></div>
+    <!-- 防止 React 崩潰時的白屏備用畫面 -->
+    <div id="fallback-error" style="display: none; padding: 40px; text-align: center; color: #ef4444; font-weight: bold; font-size: 20px;">
+        網頁腳本發生嚴重錯誤，無法啟動 React。請檢查瀏覽器主控台 (F12)。
+    </div>
+    
+    <div id="root">
+        <div style="padding: 40px; text-align: center; color: #a855f7; font-weight: bold; font-size: 20px; animation: pulse 2s infinite;">
+            系統介面載入中... 
+            <br><span style="font-size: 14px; color: #666;">(若停留超過 5 秒，代表代碼發生錯誤)</span>
+        </div>
+    </div>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo, useCallback } = React;
+        // 攔截重大錯誤
+        window.addEventListener('error', () => {
+            const fallback = document.getElementById('fallback-error');
+            if(fallback) fallback.style.display = 'block';
+        });
+
+        const { useState, useEffect, useMemo, useCallback, useRef } = React;
         
-        // Manual Lucide Icon Mapping for CDN usage
-        const Icon = ({ name, className, size = 24 }) => {
-            const [svg, setSvg] = useState('');
+        // 修正版安全 Icon 元件：使用原生 Lucide API，100% 防止崩潰
+        const Icon = ({ name, className = "", size = 24 }) => {
+            const spanRef = useRef(null);
             useEffect(() => {
-                if (window.lucide) {
-                    const iconNode = window.lucide.icons[name];
-                    if (iconNode) {
-                        const svgString = iconNode.map(tag => {
-                            const [tagName, attrs] = tag;
-                            const attrString = Object.entries(attrs).map(([k, v]) => `${k}="${v}"`).join(' ');
-                            return `<${tagName} ${attrString}></${tagName}>`;
-                        }).join('');
-                        setSvg(svgString);
+                if (spanRef.current && window.lucide && window.lucide.icons[name]) {
+                    try {
+                        spanRef.current.innerHTML = ''; 
+                        const svg = window.lucide.createElement(window.lucide.icons[name]);
+                        svg.setAttribute('width', size);
+                        svg.setAttribute('height', size);
+                        if (className) svg.setAttribute('class', className);
+                        spanRef.current.appendChild(svg);
+                    } catch (e) {
+                        console.error("圖示載入失敗:", e);
                     }
                 }
-            }, [name]);
+            }, [name, size, className]);
 
-            return (
-                <svg 
-                    width={size} 
-                    height={size} 
-                    className={className} 
-                    viewBox="0 0 24 24" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="2" 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round"
-                    dangerouslySetInnerHTML={{ __html: svg }}
-                />
-            );
+            return <span ref={spanRef} className="inline-flex items-center justify-center" style={{ width: size, height: size }}></span>;
         };
 
         const formatHKD = (val) => new Intl.NumberFormat('zh-HK', { style: 'currency', currency: 'HKD', maximumFractionDigits: 0 }).format(val);
@@ -160,8 +154,8 @@
             );
         };
 
-        // ⚠️ 請確保這段 URL 是您「最後一次部署」產生出來的網址！如果重新部署時變成不同的網址，請務必更新這裡。
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzsrWHgdLg67tJPojgtATynqHN1Dg8Smgcc62wVAU7h4JhKwz1R0g7VVjgGa2qIex78oQ/exec";
+        // ⚠️ 請確保這是您最新的 Google Apps Script 網址
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwP0O0BsCWK0MN03uayShGS8-WWHBgPRZWz9LCTEiF4amChe2PoBVQYKOm_v_cmKqF7XQ/exec";
 
         const App = () => {
             const [db, setDb] = useState([]);
@@ -188,33 +182,42 @@
                 setIsLoading(true);
                 setError(null);
                 try {
-                    // 移除 mode: 'cors' 避免不必要的預檢失敗，對於 Google Script GET 請求直接 fetch 即可
+                    // 自動診斷系統
                     const response = await fetch(SCRIPT_URL);
-                    
-                    // 關鍵修正：先轉換成純文字，避免因為 Google 回傳 HTML（例如登入畫面）而導致 JSON 解析崩潰
                     const textData = await response.text();
                     
-                    if (!response.ok) {
-                        throw new Error(`HTTP 錯誤! 狀態碼: ${response.status}`);
+                    if (textData.trim().startsWith('<')) {
+                        throw new Error("❌ 連線被 Google 攔截 (CORS 錯誤)。\n這代表您後端的 App Script 部署設定錯誤！\n解決方法：請回到 Apps Script，點擊「管理部署作業」，確定「存取權」設為【所有人 (Anyone)】，然後【建立新版本】。");
                     }
                     
                     let data;
                     try {
                         data = JSON.parse(textData);
                     } catch (parseError) {
-                        console.error("後端回傳的不是有效 JSON，可能權限不足或是 SCRIPT_URL 網址錯誤:", textData.substring(0, 200) + "...");
-                        throw new Error("⚠️ 數據解析失敗！\n這通常是因為：\n1. 您提供的 SCRIPT_URL 網址已經失效\n2. Google Script 部署的「存取權」不是設定為「所有人 (Anyone)」\n3. 它被導向了 Google 的登入畫面");
+                        throw new Error(`❌ 無法解析 Google 回傳的資料。\n詳細資料: ${textData.substring(0, 100)}...`);
                     }
                     
-                    if (Array.isArray(data)) {
-                        // 如果是由 Google App Script 捕獲錯誤並回傳的格式：
-                        if (data.length > 0 && data[0].Region === "⚠️ 錯誤") {
-                            throw new Error(data[0].Therapist); // 這裡面包含了 Code.gs 拋出的真實錯誤訊息
-                        }
-                        setDb(data);
-                    } else {
-                        throw new Error("⚠️ 數據格式錯誤：預期應為陣列格式，請檢查試算表內容是否為空。");
+                    if (!Array.isArray(data)) {
+                        throw new Error("❌ 數據格式錯誤：回傳的不是陣列，請檢查試算表內容。");
                     }
+
+                    // 診斷 1: 完全沒收到資料 (可能是舊版程式碼讀取了空的 Submissions)
+                    if (data.length === 0) {
+                        throw new Error("⚠️ 成功連線，但沒有讀取到任何資料 (0筆)。\n原因分析：\n1. 您是否將 Code.gs 的代碼改成了最新版並【部署了新版本】？\n2. 您的 Google Sheet 裡面是否有建立【Database】工作表？\n3. 工作表裡面是否有填寫員工資料？");
+                    }
+
+                    // 診斷 2: 後端回傳了自定義錯誤
+                    if (data.length > 0 && data[0].Region === "⚠️ 錯誤") {
+                        throw new Error(`❌ 後端 Google Sheet 發生錯誤：\n${data[0].Therapist}`);
+                    }
+
+                    // 診斷 3: 讀取到了錯誤的分頁 (Submissions)
+                    const firstRow = data[0];
+                    if ('Timestamp' in firstRow && !('Therapist' in firstRow)) {
+                         throw new Error("❌ 嚴重錯誤：您正在讀取「Submissions (提交紀錄)」工作表！\n下拉選單會因此變成空白。\n解決方法：請將 Code.gs 裡 doGet() 中讀取的名稱改為您存放名單的名稱 (如 Database)，並重新部署。");
+                    }
+
+                    setDb(data);
                 } catch (err) {
                     console.error("Fetch Error:", err);
                     setError(err.message);
@@ -254,7 +257,7 @@
                     (!filters.region || i.Region === filters.region) && 
                     (!filters.brand || i.Brand === filters.brand) && 
                     (!filters.center || i.Center === filters.center)
-                ).sort((a,b) => a.Therapist.localeCompare(b.Therapist));
+                ).sort((a,b) => (a.Therapist || '').localeCompare(b.Therapist || ''));
             }, [db, filters.region, filters.brand, filters.center]);
 
             const selectedStaff = useMemo(() => db.find(i => i.Therapist === filters.therapist), [db, filters.therapist]);
@@ -358,7 +361,7 @@
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-3 glass-panel rounded-2xl md:rounded-[3rem] border border-violet-500/10">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-3 glass-panel rounded-2xl md:rounded-[3rem] border border-violet-500/10 relative">
                                 {['brand', 'center', 'therapist'].map((key) => (
                                     <div key={key} className="relative w-full">
                                         <select 
@@ -376,12 +379,18 @@
                                         </select>
                                     </div>
                                 ))}
+                                
+                                {db.length > 0 && brands.length === 0 && (
+                                     <div className="absolute inset-0 bg-black/80 flex items-center justify-center rounded-[3rem] text-orange-400 font-bold backdrop-blur-md">
+                                        ⚠️ 資料已連接，但找不到「品牌」等欄位，請檢查 Google Sheet 標題是否正確。
+                                     </div>
+                                )}
                             </div>
                             
                             {error && (
-                                <div className="p-5 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-start gap-4 text-red-400 text-base animate-in slide-in-from-top-2">
-                                    <Icon name="AlertCircle" size={24} className="w-6 h-6 flex-shrink-0 mt-0.5" />
-                                    <pre className="whitespace-pre-wrap font-sans leading-relaxed">{error}</pre>
+                                <div className="p-6 bg-red-500/10 border-2 border-red-500/40 rounded-3xl flex items-start gap-4 text-red-400 text-base animate-in slide-in-from-top-2 shadow-2xl">
+                                    <Icon name="AlertCircle" size={28} className="w-8 h-8 flex-shrink-0 mt-0.5" />
+                                    <pre className="whitespace-pre-wrap font-sans leading-relaxed text-lg">{error}</pre>
                                 </div>
                             )}
                         </header>
