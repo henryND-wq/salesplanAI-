@@ -70,9 +70,10 @@
 
             // --- 2. FETCH DATA ---
             useEffect(() => {
-                const sheetId = '1p8cqGBYiqhWgQsDndMjeGwcnupqp6h6tIyCQb1i5LQc';
-                const gid = '184945526';
-                const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
+                //const sheetId = '1p8cqGBYiqhWgQsDndMjeGwcnupqp6h6tIyCQb1i5LQc';
+                //const gid = '184945526';
+                //const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
+                  const csvUrl = `https://salesplancnhk.henry-yiu.workers.dev` ;
 
                 Papa.parse(csvUrl, {
                     download: true,
