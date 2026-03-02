@@ -162,23 +162,47 @@
 
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwmFzxUR9ezUFgQjG-cWRja0gld_85k6satiEQfj1ZGSbM7HygibFPWsYtZecWibdpPIQ/exec";
 
-        // 強大的數值獲取函數：自動比對多種可能的欄位名稱並清理格式
-        const getVal = (staff, ...keys) => {
+        // 極致強化：包含貨幣符號、逗號清理與百分比轉換的分析器
+        const parseNumber = (val) => {
+            if (typeof val === 'string') {
+                // 清理所有逗號、空格、$、HK 等字眼
+                let cleanVal = val.replace(/[,$\s]/g, '').replace(/HK/gi, '').trim();
+                if (cleanVal.includes('%')) {
+                    return Number(cleanVal.replace('%', '')) / 100;
+                }
+                const num = Number(cleanVal);
+                return isNaN(num) ? 0 : num;
+            }
+            const num = Number(val);
+            return isNaN(num) ? 0 : num;
+        };
+
+        // 強大的數值獲取函數：結合精確比對與「模糊搜尋」
+        const getVal = (staff, exactKeys, fuzzyKeywords = []) => {
             if (!staff) return 0;
-            for (let k of keys) {
+            
+            // 1. 精確匹配 (找尋是否有完全一致的欄位)
+            for (let k of exactKeys) {
                 if (staff[k] !== undefined && staff[k] !== null && staff[k] !== '') {
-                    let val = staff[k];
-                    if (typeof val === 'string') {
-                        val = val.replace(/,/g, ''); // 清理逗號 (例如: 1,234)
-                        if (val.includes('%')) {
-                            return Number(val.replace('%', '')) / 100; // 處理字串百分比
-                        }
-                    }
-                    const num = Number(val);
-                    if (!isNaN(num)) return num;
+                    return parseNumber(staff[k]);
                 }
             }
-            return 0;
+            
+            // 2. 模糊匹配 (無視空格、大小寫，只要標題「包含」關鍵字即可抓取)
+            const keys = Object.keys(staff);
+            for (let key of keys) {
+                const normalizedKey = key.toLowerCase().replace(/\s+/g, '');
+                for (let fuzzy of fuzzyKeywords) {
+                    const normalizedFuzzy = fuzzy.toLowerCase().replace(/\s+/g, '');
+                    if (normalizedKey.includes(normalizedFuzzy)) {
+                        if (staff[key] !== undefined && staff[key] !== null && staff[key] !== '') {
+                            return parseNumber(staff[key]);
+                        }
+                    }
+                }
+            }
+            
+            return 0; // 如果真的都找不到，才回傳 0
         };
 
         const App = () => {
@@ -265,14 +289,17 @@
             const selectedStaff = useMemo(() => db.find(i => i.Therapist === filters.therapist), [db, filters.therapist]);
 
             // ==========================================
-            // 完美對接 Google Sheet 欄位 (優先讀取欄位代號)
+            // 無死角對接 Google Sheet 欄位 (支援模糊匹配)
             // ==========================================
-            const colF_MTD_Actual = getVal(selectedStaff, "F", "f", "MTD 實際銷售", "Actual Sales (MTD)");
-            const colG_MTD_Pct = getVal(selectedStaff, "G", "g", "當前達成率", "MTD%");
-            const colH_ACB_Base = getVal(selectedStaff, "H", "h", "ACB 網絡基數", "ACB (Curr. Month End)");
-            const colI_ICB_Base = getVal(selectedStaff, "I", "i", "ICB 網絡基數", "ICB (Curr. Month End)");
-            const colJ_ACB_Shop = getVal(selectedStaff, "J", "j", "ACB 網店連線數", "ACB Shop Count");
-            const colK_ICB_Shop = getVal(selectedStaff, "K", "k", "ICB 網店連線數", "ICB Shop Count");
+            const colF_MTD_Actual = getVal(selectedStaff, ["F", "f", "MTD 實際銷售", "Actual Sales (MTD)"], ["mtd實際", "actualsales"]);
+            const colG_MTD_Pct = getVal(selectedStaff, ["G", "g", "當前達成率", "MTD%"], ["達成率", "mtd%"]);
+            const colH_ACB_Base = getVal(selectedStaff, ["H", "h", "ACB 網絡基數", "ACB (Curr. Month End)"], ["acb網絡", "acb基數", "acb(curr"]);
+            const colI_ICB_Base = getVal(selectedStaff, ["I", "i", "ICB 網絡基數", "ICB (Curr. Month End)"], ["icb網絡", "icb基數", "icb(curr"]);
+            const colJ_ACB_Shop = getVal(selectedStaff, ["J", "j", "ACB 網店連線數", "ACB Shop Count"], ["acb網店", "acbshop"]);
+            const colK_ICB_Shop = getVal(selectedStaff, ["K", "k", "ICB 網店連線數", "ICB Shop Count"], ["icb網店", "icbshop"]);
+            
+            // 順便確保目標金額也能正確讀取
+            const originalTarget = getVal(selectedStaff, ["Target Sales (Full Month)", "Target"], ["targetsales", "fullmonth", "目標"]);
 
             const mtdActual = colF_MTD_Actual;
             // 百分比安全處理：乘以 100 以顯示正確的百分比格式
@@ -283,7 +310,6 @@
             const acbPenetration = colH_ACB_Base > 0 ? ((colJ_ACB_Shop / colH_ACB_Base) * 100).toFixed(1) : "0";
             
             // ICB 網店連線數滲透率: column K / column I (連線數 / 網絡基數)
-            // 註: 依照一般數學邏輯為 K/I。若您確認要按照指示改為 I/K，請將下列算式改為 (colI_ICB_Base / colK_ICB_Shop)
             const icbPenetration = colI_ICB_Base > 0 ? ((colK_ICB_Shop / colI_ICB_Base) * 100).toFixed(1) : "0";
 
             // 計算內部與外部增長額
@@ -293,7 +319,6 @@
             const totalPlannedGrowth = existingSales + newSales;
             
             // 目標計算
-            const originalTarget = selectedStaff ? Number(selectedStaff["Target Sales (Full Month)"] || 0) : 0;
             const superTarget = originalTarget * 2;
             const isTargetAchieved = selectedStaff && superTarget > 0 && totalPlannedGrowth >= superTarget;
 
